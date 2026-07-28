@@ -215,7 +215,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
           className={
             layoutMode === 'grid'
               ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'space-y-4'
+              : 'grid grid-cols-1 md:grid-cols-2 gap-4'
           }
         >
           {filteredProductions.map((prod) => (
@@ -231,7 +231,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
                 className={`relative overflow-hidden bg-[#111113] ${
                   layoutMode === 'grid'
                     ? 'h-64 sm:h-72 w-full'
-                    : 'h-48 sm:h-auto sm:w-56 shrink-0'
+                    : 'h-48 sm:h-auto sm:w-36 md:w-40 shrink-0'
                 }`}
               >
                 <img
@@ -314,10 +314,10 @@ export const JournalView: React.FC<JournalViewProps> = ({
                   </div>
 
                   {/* Venue & City */}
-                  <div className="flex items-center space-x-1.5 text-xs text-[#111113]/80 font-mono">
+                  <div className="flex items-center space-x-1.5 text-xs text-[#111113]/80">
                     <MapPin className="w-3.5 h-3.5 text-[#2A5AEE] shrink-0" />
-                    <span className="truncate uppercase">{prod.venue}</span>
-                    {prod.city && <span className="text-[#111113]/50">• {prod.city}</span>}
+                    <span className="truncate uppercase font-sans font-normal text-xs leading-[14.67px]">{prod.venue}</span>
+                    {prod.city && <span className="text-[#111113]/50 font-mono text-xs">• {prod.city}</span>}
                   </div>
 
                   {/* Notes or Synopsis excerpt */}
@@ -332,15 +332,15 @@ export const JournalView: React.FC<JournalViewProps> = ({
                   ) : null}
                 </div>
 
-                {/* Bottom Tags & Theatre Type */}
+                {/* Bottom Tags */}
                 <div className="pt-3 border-t border-[#111113]/15 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-                  {prod.theatreType ? (
-                    <span className="text-[#111113]/70 truncate max-w-[180px]">
-                      Production: <strong className="text-[#111113]">{prod.theatreType}</strong>
-                    </span>
-                  ) : (
-                    <span className="text-[#111113]/40 italic">Broadway</span>
-                  )}
+                  <div className="flex items-center space-x-1.5 flex-wrap">
+                    {prod.isRushed && (
+                      <span className="bg-amber-400 text-[#111113] border border-[#111113] text-[9px] font-mono font-bold uppercase px-1.5 py-0.5">
+                        Rushed
+                      </span>
+                    )}
+                  </div>
 
                   {/* Tags */}
                   {prod.tags && prod.tags.length > 0 && (

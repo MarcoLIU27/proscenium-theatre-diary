@@ -177,9 +177,16 @@ export const ProductionDetailModal: React.FC<ProductionDetailModalProps> = ({
 
             <div>
               <span className="label block">Ticket Price</span>
-              <span className="font-bold text-emerald-700">
-                {production.ticketPrice ? `${production.currency || '$'}${production.ticketPrice}` : 'N/A'}
-              </span>
+              <div className="flex items-center space-x-1.5 flex-wrap">
+                <span className="font-bold text-emerald-700">
+                  {production.ticketPrice ? `${production.currency || '$'}${production.ticketPrice}` : 'N/A'}
+                </span>
+                {production.isRushed && (
+                  <span className="bg-amber-400 text-[#111113] border border-[#111113] text-[10px] font-mono font-bold uppercase px-1.5 py-0.5">
+                    Rushed
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

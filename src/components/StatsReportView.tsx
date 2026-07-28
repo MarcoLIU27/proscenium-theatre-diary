@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { Production, AIReportInsight } from '../types';
 import { computeWatchStats } from '../utils/stats';
-import { toPng } from 'html-to-image';
-import { Download, Sparkles, Star, Ticket, Trophy, DollarSign, Award, FileJson, CheckCircle2 } from 'lucide-react';
+import { Download, Sparkles, Star, Ticket, Trophy, DollarSign, Award, FileJson, CheckCircle2, Calendar, LayoutGrid } from 'lucide-react';
+import { MonthlyShowDetailsExportModal } from './MonthlyShowDetailsExportModal';
+import { getProxiedImageUrl } from '../utils/imageUtils';
+import { exportElementToPng } from '../utils/exportUtils';
 
 interface StatsReportViewProps {
   productions: Production[];
@@ -20,18 +22,63 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
   const [exportSuccess, setExportSuccess] = useState(false);
   const [aiInsight, setAiInsight] = useState<AIReportInsight | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [isExportDetailsModalOpen, setIsExportDetailsModalOpen] = useState(false);
 
-  const stats = computeWatchStats(productions);
+  // Timeframe filter state
+  const [timeframeType, setTimeframeType] = useState<'all' | 'year' | 'month'>('all');
+
+  // Extract available years and months from productions
+  const availableYears: string[] = [
+    ...new Set<string>(productions.map((p) => p.date ? p.date.substring(0, 4) : '').filter((d): d is string => Boolean(d)))
+  ].sort().reverse();
+  const currentYearStr = String(new Date().getFullYear());
+  if (availableYears.length === 0) availableYears.push(currentYearStr);
+
+  const availableMonths: string[] = [
+    ...new Set<string>(productions.map((p) => p.date ? p.date.substring(0, 7) : '').filter((d): d is string => Boolean(d)))
+  ].sort().reverse();
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  if (availableMonths.length === 0) availableMonths.push(currentMonthStr);
+
+  const [selectedYear, setSelectedYear] = useState<string>(availableYears[0] || currentYearStr);
+  const [selectedMonth, setSelectedMonth] = useState<string>(availableMonths[0] || currentMonthStr);
+
+  // Filter productions based on selected timeframe
+  const filteredProductions = productions.filter((p) => {
+    if (!p.date) return false;
+    if (timeframeType === 'year') {
+      return p.date.startsWith(selectedYear);
+    }
+    if (timeframeType === 'month') {
+      return p.date.startsWith(selectedMonth);
+    }
+    return true; // 'all'
+  });
+
+  const stats = computeWatchStats(filteredProductions);
+
+  // Timeframe display label for report header
+  const getTimeframeLabel = () => {
+    if (timeframeType === 'year') {
+      return `${selectedYear} Season`;
+    }
+    if (timeframeType === 'month') {
+      const [y, m] = selectedMonth.split('-');
+      const d = new Date(parseInt(y), parseInt(m) - 1, 1);
+      return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    }
+    return 'All-Time Viewing History';
+  };
 
   // Fetch AI Critic Analysis report from Express backend
   const fetchAiReport = async () => {
-    if (productions.length === 0) return;
+    if (filteredProductions.length === 0) return;
     setLoadingAi(true);
     try {
       const res = await fetch('/api/gemini/insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productions }),
+        body: JSON.stringify({ productions: filteredProductions }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -51,16 +98,11 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
     setExportSuccess(false);
 
     try {
-      const dataUrl = await toPng(reportRef.current, {
-        cacheBust: true,
-        quality: 0.95,
-        backgroundColor: '#f8f7f4',
-      });
-
-      const link = document.createElement('a');
-      link.download = `Proscenium-Report-${new Date().toISOString().slice(0, 10)}.png`;
-      link.href = dataUrl;
-      link.click();
+      await exportElementToPng(
+        reportRef.current,
+        `Proscenium-Report-${getTimeframeLabel().replace(/\s+/g, '-')}.png`,
+        '#F8F7F4'
+      );
 
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 4000);
@@ -72,16 +114,104 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Timeframe Filter Selector Strip */}
+      <div className="bg-white border-2 border-[#111113] p-4 flex flex-wrap items-center justify-between gap-4 shadow-[2px_2px_0px_0px_#111113]">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-mono font-bold uppercase text-[#111113] mr-1">Timeframe:</span>
+          
+          <button
+            type="button"
+            onClick={() => setTimeframeType('all')}
+            className={`px-3 py-1.5 border text-xs font-mono font-bold uppercase transition-all cursor-pointer ${
+              timeframeType === 'all'
+                ? 'bg-[#111113] text-white border-[#111113]'
+                : 'bg-[#F8F7F4] text-[#111113] border-[#111113]/30 hover:border-[#111113]'
+            }`}
+          >
+            All Time
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTimeframeType('year')}
+            className={`px-3 py-1.5 border text-xs font-mono font-bold uppercase transition-all cursor-pointer ${
+              timeframeType === 'year'
+                ? 'bg-[#111113] text-white border-[#111113]'
+                : 'bg-[#F8F7F4] text-[#111113] border-[#111113]/30 hover:border-[#111113]'
+            }`}
+          >
+            By Year
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTimeframeType('month')}
+            className={`px-3 py-1.5 border text-xs font-mono font-bold uppercase transition-all cursor-pointer ${
+              timeframeType === 'month'
+                ? 'bg-[#111113] text-white border-[#111113]'
+                : 'bg-[#F8F7F4] text-[#111113] border-[#111113]/30 hover:border-[#111113]'
+            }`}
+          >
+            By Month
+          </button>
+
+          {/* Dynamic Dropdowns for Year / Month */}
+          {timeframeType === 'year' && (
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-white border-2 border-[#111113] px-3 py-1 text-xs font-mono font-bold outline-none cursor-pointer"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  Year {y}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {timeframeType === 'month' && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-white border-2 border-[#111113] px-3 py-1 text-xs font-mono font-bold outline-none cursor-pointer"
+            >
+              {availableMonths.map((m) => {
+                const [y, mon] = m.split('-');
+                const dateObj = new Date(parseInt(y), parseInt(mon) - 1, 1);
+                const label = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                return (
+                  <option key={m} value={m}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          )}
+        </div>
+
+        {/* Export Monthly Show Cards Button */}
+        <button
+          type="button"
+          onClick={() => setIsExportDetailsModalOpen(true)}
+          className="flex items-center space-x-1.5 bg-[#EEECE7] hover:bg-[#111113] hover:text-white border border-[#111113] text-[#111113] font-mono text-xs font-bold uppercase px-3.5 py-1.5 transition-all cursor-pointer"
+          title="Generate image of all show cards for a month"
+        >
+          <LayoutGrid className="w-3.5 h-3.5 text-[#2A5AEE]" />
+          <span>Export Monthly Show Cards Image</span>
+        </button>
+      </div>
+
       {/* Top Action Bar */}
       <div className="bg-white border-2 border-[#111113] p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="font-oswald text-4xl font-bold uppercase text-[#111113] flex items-center gap-2">
+          <h2 className="font-oswald text-3xl sm:text-4xl font-bold uppercase text-[#111113] flex items-center gap-2">
             <Trophy className="w-6 h-6 text-[#2A5AEE]" />
-            <span>Season Watch Statistics</span>
+            <span>Watch Statistics • {getTimeframeLabel()}</span>
           </h2>
           <p className="label mt-1">
-            Interactive analytical report card & visual infographic
+            Showing stats for {filteredProductions.length} {filteredProductions.length === 1 ? 'production' : 'productions'}
           </p>
         </div>
 
@@ -90,7 +220,7 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
           <button
             id="btn-generate-ai-insight"
             onClick={fetchAiReport}
-            disabled={loadingAi || productions.length === 0}
+            disabled={loadingAi || filteredProductions.length === 0}
             className="flex items-center space-x-2 bg-white border-2 border-[#111113] hover:bg-[#EEECE7] text-[#111113] font-oswald text-sm font-bold uppercase tracking-wider px-4 py-2.5 disabled:opacity-50 cursor-pointer transition-all"
           >
             <Sparkles className={`w-4 h-4 text-[#2A5AEE] ${loadingAi ? 'animate-spin' : ''}`} />
@@ -101,7 +231,7 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
           <button
             id="btn-export-report-png"
             onClick={handleExportPNG}
-            disabled={isExporting || productions.length === 0}
+            disabled={isExporting || filteredProductions.length === 0}
             className="flex items-center space-x-2 bg-[#2A5AEE] hover:bg-[#1f47c9] text-white font-oswald text-sm font-bold uppercase tracking-wider border-2 border-[#111113] px-5 py-2.5 disabled:opacity-50 cursor-pointer shadow-[2px_2px_0px_0px_#111113] transition-all"
           >
             {exportSuccess ? (
@@ -139,21 +269,21 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
         {/* Report Title Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-2 border-[#111113] pb-6 gap-4">
           <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 bg-[#2A5AEE] border-2 border-[#111113] flex items-center justify-center text-white">
+            <div className="w-14 h-14 bg-[#2A5AEE] border-2 border-[#111113] flex items-center justify-center text-white shrink-0">
               <Ticket className="w-7 h-7 transform -rotate-12 stroke-[2.5]" />
             </div>
             <div>
               <h1 className="font-oswald text-4xl sm:text-5xl font-bold uppercase tracking-tight text-[#111113]">
-                Proscenium Season Report
+                Proscenium Report
               </h1>
               <p className="label mt-0.5">
-                Personal Viewing History • {new Date().getFullYear()} Season
+                Personal Viewing History • {getTimeframeLabel()}
               </p>
             </div>
           </div>
 
           <div className="bg-white border-2 border-[#111113] px-5 py-2.5 text-right">
-            <p className="label">Total Shows Logged</p>
+            <p className="label">Shows Logged</p>
             <p className="font-oswald text-4xl font-bold text-[#2A5AEE]">{stats.totalShows}</p>
           </div>
         </div>
@@ -304,9 +434,9 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
                 >
                   <div className="relative h-44 w-full overflow-hidden bg-black">
                     <img
-                      src={show.posterUrl}
+                      src={getProxiedImageUrl(show.posterUrl)}
                       alt={show.title}
-                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-2 right-2 bg-[#111113] border border-amber-400 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-400 flex items-center gap-0.5">
@@ -330,6 +460,14 @@ export const StatsReportView: React.FC<StatsReportViewProps> = ({
           <span>Generated {new Date().toLocaleDateString()}</span>
         </div>
       </div>
+
+      {/* Monthly Show Details Export Modal */}
+      <MonthlyShowDetailsExportModal
+        isOpen={isExportDetailsModalOpen}
+        onClose={() => setIsExportDetailsModalOpen(false)}
+        productions={productions}
+        initialMonthKey={timeframeType === 'month' ? selectedMonth : undefined}
+      />
     </div>
   );
 };

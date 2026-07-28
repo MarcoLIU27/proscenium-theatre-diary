@@ -44,6 +44,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
   const [notes, setNotes] = useState('');
   const [ticketPrice, setTicketPrice] = useState<number | ''>('');
   const [currency, setCurrency] = useState('$');
+  const [isRushed, setIsRushed] = useState(false);
   const [tagsInput, setTagsInput] = useState('');
   const [synopsis, setSynopsis] = useState('');
 
@@ -70,6 +71,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
       setNotes(editingProduction.notes || '');
       setTicketPrice(editingProduction.ticketPrice !== undefined ? editingProduction.ticketPrice : '');
       setCurrency(editingProduction.currency || '$');
+      setIsRushed(!!editingProduction.isRushed);
       setTagsInput((editingProduction.tags || []).join(', '));
       setSynopsis(editingProduction.synopsis || '');
       setPosterSearchKeyword(`${editingProduction.title} ${editingProduction.venue || ''} poster`.trim());
@@ -89,6 +91,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
       setNotes('');
       setTicketPrice('');
       setCurrency('$');
+      setIsRushed(false);
       setTagsInput('');
       setSynopsis('');
       setAiMessage('');
@@ -221,6 +224,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
       notes: notes.trim(),
       ticketPrice: ticketPrice !== '' ? Number(ticketPrice) : undefined,
       currency,
+      isRushed,
       tags: parsedTags,
       synopsis: synopsis.trim(),
       createdAt: editingProduction ? editingProduction.createdAt : new Date().toISOString(),
@@ -373,7 +377,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-mono"
+                className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-sans"
               />
             </div>
 
@@ -418,36 +422,56 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                 placeholder="e.g. Gershwin Theatre, Sondheim Theatre"
                 value={venue}
                 onChange={(e) => setVenue(e.target.value)}
-                className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-mono"
+                className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-sans"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block label text-[#111113]">
-                City / Location
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. New York, London, Chicago"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-mono"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block label text-[#111113]">
-                Ticket Price ($)
-              </label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-[#111113] font-bold text-xs font-mono select-none">$</span>
+            {/* City, Ticket Price, and Rushed? in 1 row (1/3 width each) */}
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <label className="block label text-[#111113]">
+                  City / Location
+                </label>
                 <input
-                  type="number"
-                  placeholder="e.g. 150"
-                  value={ticketPrice}
-                  onChange={(e) => setTicketPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] pl-7 pr-3.5 py-2 text-xs outline-none font-mono"
+                  type="text"
+                  placeholder="e.g. New York, London, Chicago"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-sans"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block label text-[#111113]">
+                  Ticket Price ($)
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-[#111113] font-bold text-xs font-mono select-none">$</span>
+                  <input
+                    type="number"
+                    placeholder="e.g. 150"
+                    value={ticketPrice}
+                    onChange={(e) => setTicketPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] pl-7 pr-3.5 py-2 text-xs outline-none font-sans"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block label text-[#111113]">
+                  Rushed?
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsRushed(!isRushed)}
+                  className={`w-full flex items-center justify-center space-x-1 border border-[#111113] px-2 py-2 text-xs font-sans font-bold cursor-pointer transition-all select-none h-[38px] ${
+                    isRushed
+                      ? 'bg-amber-400 text-[#111113] border-[#111113] shadow-[1px_1px_0px_0px_#111113]'
+                      : 'bg-[#F8F7F4] text-[#111113]/70 hover:bg-[#EEECE7]'
+                  }`}
+                >
+                  <span>{isRushed ? '⚡ Yes, Rushed' : 'No (Standard)'}</span>
+                </button>
               </div>
             </div>
           </div>
@@ -517,7 +541,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
 
             {/* Search Bar for Brave Image Keywords */}
             <div className="space-y-1.5">
-              <span className="text-[11px] text-[#111113]/80 font-normal font-sans">
+              <span className="text-[12px] text-[#111113]/80 font-normal font-sans">
                 Search poster keywords:
               </span>
               <div className="flex gap-2">
@@ -601,7 +625,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
 
             {/* Custom Image Link Input */}
             <div className="space-y-1 pt-2 border-t border-[#111113]/10">
-              <span className="text-[10px] text-[#111113]/70 font-mono block">Direct Image Link URL:</span>
+              <span className="text-[11px] text-[#111113]/80 font-normal font-sans">Direct Image Link URL:</span>
               <input
                 type="url"
                 placeholder="Paste custom image URL (e.g. https://...)"
@@ -612,8 +636,8 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
             </div>
 
             {/* Classic Presets Gallery */}
-            <div className="space-y-1 pt-1">
-              <span className="text-[10px] text-[#111113]/60 font-mono block">Or select theatrical background preset:</span>
+            <div className="space-y-1 pt-0">
+              <span className="text-[11px] text-[#111113]/80 font-normal font-sans">Or select theatrical background preset:</span>
               <div className="grid grid-cols-6 gap-1.5">
                 {PRESET_POSTERS.map((preset, idx) => (
                   <button
@@ -641,7 +665,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
               placeholder="e.g. Broadway, Front Row, Revival, Tony Winner"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-mono"
+              className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-sans"
             />
           </div>
 
@@ -674,11 +698,11 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                 type="button"
                 onClick={handleRefineNotes}
                 disabled={isRefiningNotes || !notes.trim()}
-                className="flex items-center space-x-1.5 text-xs font-mono font-bold text-[#2A5AEE] hover:text-[#1f47c9] disabled:opacity-40 cursor-pointer bg-[#2A5AEE]/10 hover:bg-[#2A5AEE]/20 px-2.5 py-1 border border-[#2A5AEE]/30 transition-all"
+                className="flex items-center space-x-1.5 text-xs font-sans font-bold text-[#2A5AEE] hover:text-[#1f47c9] disabled:opacity-40 cursor-pointer bg-[#2A5AEE]/10 hover:bg-[#2A5AEE]/20 px-2.5 py-1 border border-[#2A5AEE]/30 transition-all"
                 title="Refine sentence flow and fix typos while keeping your original tone"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isRefiningNotes ? 'animate-spin' : ''}`} />
-                <span>{isRefiningNotes ? 'Refining...' : 'Refine with AI'}</span>
+                <span className="font-sans font-bold">{isRefiningNotes ? 'Refining...' : 'Refine with AI'}</span>
               </button>
             </div>
             <textarea
@@ -686,7 +710,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
               placeholder="What stood out? Vocals, set design, orchestra, memorable moments..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] p-3 text-sm outline-none font-normal leading-relaxed"
+              className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] p-3 text-xs outline-none font-normal leading-relaxed"
             />
           </div>
 

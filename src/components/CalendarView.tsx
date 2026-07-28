@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Production } from '../types';
-import { Plus, Star } from 'lucide-react';
+import { Plus, Star, Download, LayoutGrid } from 'lucide-react';
+import { MonthlyShowDetailsExportModal } from './MonthlyShowDetailsExportModal';
+import { CalendarExportModal } from './CalendarExportModal';
+import { getProxiedImageUrl } from '../utils/imageUtils';
 
 interface CalendarViewProps {
   productions: Production[];
@@ -13,6 +16,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onSelectProduction,
   onAddOnDate,
 }) => {
+  const [isCalendarExportModalOpen, setIsCalendarExportModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
   // Current calendar view month (default to latest show date or current date)
   const defaultDate = productions.length > 0 
     ? new Date(productions[0].date) 
@@ -39,11 +45,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setCurrentDate(new Date());
   };
 
-  // Days calculation
-  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sun, 1 = Mon...
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
+  const currentMonthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
+
+  // Days calculation
+  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   // Map productions by YYYY-MM-DD
   const productionsByDate: Record<string, Production[]> = {};
@@ -108,37 +115,60 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between border-b-2 border-[#111113] pb-4 gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-end justify-between border-b-2 border-[#111113] pb-4 gap-4">
         <div>
           <h2 className="font-oswald text-5xl sm:text-7xl font-bold uppercase leading-none tracking-tight text-[#111113]">
             {monthName} {year}
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Month Navigation */}
+          <div className="flex items-center gap-1 bg-white border border-[#111113] p-1">
+            <button
+              id="btn-calendar-prev"
+              onClick={handlePrevMonth}
+              className="px-2.5 py-1 hover:bg-[#EEECE7] text-[#111113] font-mono text-sm cursor-pointer transition-colors"
+              title="Previous Month"
+            >
+              ←
+            </button>
+            <span className="text-[#111113]/40 font-mono text-xs">/</span>
+            <button
+              id="btn-calendar-next"
+              onClick={handleNextMonth}
+              className="px-2.5 py-1 hover:bg-[#EEECE7] text-[#111113] font-mono text-sm cursor-pointer transition-colors"
+              title="Next Month"
+            >
+              →
+            </button>
+            <button
+              id="btn-calendar-today"
+              onClick={handleToday}
+              className="ml-1 px-2.5 py-1 bg-[#EEECE7] hover:bg-[#111113] hover:text-white text-[#111113] font-mono text-xs uppercase cursor-pointer transition-colors font-bold"
+            >
+              Today
+            </button>
+          </div>
+
+          {/* Export Calendar View as Image Button */}
           <button
-            id="btn-calendar-prev"
-            onClick={handlePrevMonth}
-            className="px-3 py-1.5 border border-[#111113] bg-white hover:bg-[#EEECE7] text-[#111113] font-mono text-sm cursor-pointer transition-colors"
-            title="Previous Month"
+            onClick={() => setIsCalendarExportModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-[#2A5AEE] hover:bg-[#1f47c9] text-white border border-[#111113] font-mono text-xs font-bold uppercase px-3 py-2 cursor-pointer shadow-[2px_2px_0px_0px_#111113] transition-all"
+            title={`Export ${monthName} ${year} Calendar view as PNG`}
           >
-            ←
+            <Download className="w-3.5 h-3.5 stroke-[3]" />
+            <span>Export Calendar Image</span>
           </button>
-          <span className="text-[#111113]/40 font-mono">/</span>
+
+          {/* Export Monthly Show Cards Button */}
           <button
-            id="btn-calendar-next"
-            onClick={handleNextMonth}
-            className="px-3 py-1.5 border border-[#111113] bg-white hover:bg-[#EEECE7] text-[#111113] font-mono text-sm cursor-pointer transition-colors"
-            title="Next Month"
+            onClick={() => setIsDetailsModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-white hover:bg-[#EEECE7] text-[#111113] border border-[#111113] font-mono text-xs font-bold uppercase px-3 py-2 cursor-pointer transition-all"
+            title={`Export Show Detail Cards for ${monthName} ${year}`}
           >
-            →
-          </button>
-          <button
-            id="btn-calendar-today"
-            onClick={handleToday}
-            className="ml-2 px-3 py-1.5 border border-[#111113] bg-[#EEECE7] hover:bg-[#111113] hover:text-white font-mono text-xs uppercase cursor-pointer transition-colors"
-          >
-            Today
+            <LayoutGrid className="w-3.5 h-3.5 text-[#2A5AEE]" />
+            <span>Show Details Image</span>
           </button>
         </div>
       </div>
@@ -160,8 +190,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         ))}
       </div>
 
-      {/* Calendar Grid Container */}
-      <div className="border-2 border-[#111113] bg-white overflow-hidden">
+      {/* Calendar Grid Container (Homepage UI - Clean) */}
+      <div className="border-2 border-[#111113] bg-white overflow-hidden shadow-[2px_2px_0px_0px_#111113]">
         {/* Days of Week Header */}
         <div className="grid grid-cols-7 gap-0 border-b-2 border-[#111113] bg-[#EEECE7]">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
@@ -201,9 +231,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 >
                   {/* Full Cell Poster Background or Split Grid */}
                   {showsOnDate.length === 1 ? (
-                    <div 
-                      className="absolute inset-0 w-full h-full cursor-pointer overflow-hidden z-0 bg-cover bg-center"
-                      style={{ backgroundImage: `url(${showsOnDate[0].posterUrl})` }}
+                    <img 
+                      src={getProxiedImageUrl(showsOnDate[0].posterUrl)}
+                      alt={showsOnDate[0].title}
+                      crossOrigin="anonymous"
+                      className="absolute inset-0 w-full h-full object-cover z-0 cursor-pointer"
                       onClick={() => onSelectProduction(showsOnDate[0])}
                     />
                   ) : showsOnDate.length >= 2 ? (
@@ -213,15 +245,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       {showsOnDate.slice(0, 4).map((prod) => (
                         <div
                           key={prod.id}
-                          className="relative w-full flex-1 bg-cover bg-center cursor-pointer group/split flex items-end"
-                          style={{ backgroundImage: `url(${prod.posterUrl})` }}
+                          className="relative w-full flex-1 overflow-hidden cursor-pointer group/split flex items-end"
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectProduction(prod);
                           }}
                           title={`${prod.title} (${prod.rating}★)`}
                         >
-                          <div className="w-full bg-gradient-to-t from-black/90 via-black/50 to-transparent px-1.5 pb-1 pt-3 flex items-center justify-between gap-1">
+                          <img
+                            src={getProxiedImageUrl(prod.posterUrl)}
+                            alt={prod.title}
+                            crossOrigin="anonymous"
+                            className="absolute inset-0 w-full h-full object-cover z-0"
+                          />
+                          <div className="relative z-10 w-full bg-gradient-to-t from-black/90 via-black/50 to-transparent px-1.5 pb-1 pt-3 flex items-center justify-between gap-1">
                             <p className="font-oswald uppercase tracking-wider text-[0.55rem] sm:text-[0.6rem] font-bold text-white whitespace-normal break-words leading-tight drop-shadow-xs truncate">
                               {prod.title}
                             </p>
@@ -305,6 +342,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           })}
         </div>
       </div>
+
+      {/* Calendar Export Modal */}
+      <CalendarExportModal
+        isOpen={isCalendarExportModalOpen}
+        onClose={() => setIsCalendarExportModalOpen(false)}
+        productions={productions}
+        year={year}
+        month={month}
+        monthName={monthName}
+      />
+
+      {/* Monthly Show Details Export Modal */}
+      <MonthlyShowDetailsExportModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        productions={productions}
+        initialMonthKey={currentMonthKey}
+      />
     </div>
   );
 };

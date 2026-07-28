@@ -29,6 +29,7 @@ export interface Production {
   notes?: string;
   ticketPrice?: number;
   currency?: string;
+  isRushed?: boolean;
   playbillPhoto?: string;
   tags?: string[];
   synopsis?: string;
