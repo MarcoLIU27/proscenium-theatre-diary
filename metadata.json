@@ -1,0 +1,6 @@
+{
+  "name": "Theatre Diary",
+  "description": "Log theatre productions attended with ratings, explore a calendar view with show posters, and export watch statistics visual reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
