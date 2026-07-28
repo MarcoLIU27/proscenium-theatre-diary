@@ -205,9 +205,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       className="absolute inset-0 w-full h-full cursor-pointer overflow-hidden z-0 bg-cover bg-center"
                       style={{ backgroundImage: `url(${showsOnDate[0].posterUrl})` }}
                       onClick={() => onSelectProduction(showsOnDate[0])}
-                    >
-                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-                    </div>
+                    />
                   ) : showsOnDate.length >= 2 ? (
                     <div 
                       className={`absolute inset-0 w-full h-full flex flex-col gap-0.5 bg-[#111113] overflow-hidden z-0`}
@@ -239,17 +237,33 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                   {/* Day Header Label & Rating Badge */}
                   <div className="relative z-10 flex items-center justify-between pointer-events-none">
-                    <span
-                      className={`font-mono text-xs font-bold ${
-                        showsOnDate.length > 0
-                          ? 'bg-[#111113] text-white px-1.5 py-0.5 text-[0.6rem]'
-                          : isToday
-                          ? 'bg-[#2A5AEE] text-white px-1.5 py-0.5 text-[0.6rem]'
-                          : 'text-[#111113]'
-                      }`}
-                    >
-                      {String(dayNum).padStart(2, '0')}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`font-mono text-xs font-bold ${
+                          showsOnDate.length > 0
+                            ? 'bg-[#111113] text-white px-1.5 py-0.5 text-[0.6rem]'
+                            : isToday
+                            ? 'bg-[#2A5AEE] text-white px-1.5 py-0.5 text-[0.6rem]'
+                            : 'text-[#111113]'
+                        }`}
+                      >
+                        {String(dayNum).padStart(2, '0')}
+                      </span>
+
+                      {/* Small add icon on right of date number if 1 or more shows exist */}
+                      {showsOnDate.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddOnDate(dateStr);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 bg-[#111113] text-white hover:bg-[#2A5AEE] border border-white/20 transition-all pointer-events-auto cursor-pointer shadow-xs"
+                          title={`Add another show on ${dateStr}`}
+                        >
+                          <Plus className="w-2.5 h-2.5 stroke-[3]" />
+                        </button>
+                      )}
+                    </div>
 
                     {/* Single show top right rating badge */}
                     {showsOnDate.length === 1 && (

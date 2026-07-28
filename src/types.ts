@@ -11,8 +11,7 @@ export type TheatreType =
   | 'Off-Broadway'
   | 'Touring'
   | 'Regional'
-  | 'Community'
-  | 'Other';
+  | 'Community';
 
 export type ShowtimeType = 'Matinee' | 'Evening';
 

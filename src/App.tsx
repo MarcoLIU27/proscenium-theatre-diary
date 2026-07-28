@@ -53,20 +53,29 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
-    let isSeeding = false;
+    let hasCheckedInitial = false;
 
     const unsubscribeSnapshot = subscribeToUserProductions(
       currentUser.uid,
       async (cloudProds) => {
-        if (cloudProds.length === 0 && !isSeeding) {
-          isSeeding = true;
-          // First time cloud user: Seed Firestore with existing local data or samples
-          const localInitial = loadProductions();
-          await seedInitialDataToCloud(currentUser.uid, localInitial);
-        } else {
-          setProductions(cloudProds);
-          saveProductions(cloudProds); // Cache locally
+        if (!hasCheckedInitial) {
+          hasCheckedInitial = true;
+          const seededKey = `theatre_diary_seeded_${currentUser.uid}`;
+          const isSeeded = localStorage.getItem(seededKey);
+
+          if (cloudProds.length === 0 && !isSeeded) {
+            localStorage.setItem(seededKey, 'true');
+            const localInitial = loadProductions();
+            if (localInitial.length > 0) {
+              await seedInitialDataToCloud(currentUser.uid, localInitial);
+              return;
+            }
+          }
+          localStorage.setItem(seededKey, 'true');
         }
+
+        setProductions(cloudProds);
+        saveProductions(cloudProds); // Cache locally
       },
       (err) => {
         console.warn('Falling back to local data due to subscription error', err);
@@ -103,6 +112,9 @@ export default function App() {
     const updated = productions.filter((p) => p.id !== id);
     setProductions(updated);
     saveProductions(updated);
+    if (selectedProduction?.id === id) {
+      setSelectedProduction(null);
+    }
 
     if (currentUser) {
       try {
@@ -215,6 +227,7 @@ export default function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSave={handleSaveProduction}
+        onDelete={handleDeleteProduction}
         editingProduction={editingProduction}
         initialDate={initialDateForAdd}
       />

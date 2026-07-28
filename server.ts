@@ -64,7 +64,7 @@ Input description/title: "${inputText}"
 Extract as many details as possible:
 - Official show title
 - Category/Genre (MUST be one of: "Musical", "Play", "Opera", "Dance", "Concert", "Other")
-- Production/Theatre Type (MUST be one of: "Broadway", "Off-Broadway", "Touring", "Regional", "Community", "Other")
+- Production/Theatre Type (MUST be one of: "Broadway", "Off-Broadway", "Touring", "Regional", "Community")
 - Venue/Theatre name if mentioned
 - City name if mentioned (default to New York if unknown Broadway/Off-Broadway show)
 - Show date (YYYY-MM-DD) if mentioned or relative (e.g. yesterday relative to ${todayStr})
@@ -154,7 +154,7 @@ app.get("/api/poster-search", async (req, res) => {
     // Primary path: Use Brave Search Image API if subscription key exists
     if (braveApiKey) {
       try {
-        const braveUrl = `https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(query)}&count=8&safesearch=strict`;
+        const braveUrl = `https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(query)}&count=12&safesearch=strict`;
         const response = await fetch(braveUrl, {
           headers: {
             "Accept": "application/json",
@@ -164,7 +164,7 @@ app.get("/api/poster-search", async (req, res) => {
         });
         if (response.ok) {
           const data = await response.json();
-          const results = (data.results || []).slice(0, 6).map((item: any) => ({
+          const results = (data.results || []).slice(0, 10).map((item: any) => ({
             title: item.title || query,
             contentUrl: item.properties?.url || item.thumbnail?.src || item.url,
             thumbnailUrl: item.thumbnail?.src || item.properties?.url || item.url,
@@ -193,7 +193,7 @@ app.get("/api/poster-search", async (req, res) => {
       });
       if (ddgRes.ok) {
         const ddgData = await ddgRes.json();
-        const results = (ddgData.results || []).slice(0, 6).map((item: any) => ({
+        const results = (ddgData.results || []).slice(0, 10).map((item: any) => ({
           title: item.title,
           contentUrl: item.image,
           thumbnailUrl: item.thumbnail || item.image,
@@ -233,6 +233,62 @@ app.get("/api/poster-search", async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to search poster images" });
+  }
+});
+
+// Endpoint: Refine personal review notes using Gemini
+app.post("/api/gemini/refine-notes", async (req, res) => {
+  try {
+    const { text } = req.body;
+    const inputText = (text || "").trim();
+    if (!inputText) {
+      res.status(400).json({ error: "Text is required to refine" });
+      return;
+    }
+
+    const ai = getGeminiClient();
+    if (!ai) {
+      res.json({ refinedText: inputText });
+      return;
+    }
+
+    const prompt = `Refine the following personal theatre review notes for smooth sentence flow and fix any typos/grammar errors, while strictly preserving the writer's authentic voice, tone, and original ideas.
+
+Original text:
+"${inputText}"
+
+Strict rules:
+1. Fix typos, spelling, and grammar mistakes.
+2. Smooth out sentence flow naturally.
+3. Keep the same meaning, thoughts, and approximate length. Do NOT cut details or shorten significantly.
+4. Do NOT use overly complex, pretentious, or fancy words that do not match the original simple writing style. Keep it natural and personal - do not overkill.
+5. Output JSON with a single key "refinedText".`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: "You are a gentle text editor. You polish personal reviews for typos and sentence flow without changing the author's voice or using hard/fancy words.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            refinedText: { type: Type.STRING, description: "The refined personal review notes" }
+          },
+          required: ["refinedText"]
+        }
+      }
+    });
+
+    if (response.text) {
+      const data = JSON.parse(response.text.trim());
+      res.json({ refinedText: data.refinedText || inputText });
+    } else {
+      res.json({ refinedText: inputText });
+    }
+  } catch (err: any) {
+    console.error("Gemini refine notes error:", err);
+    res.status(500).json({ error: "Failed to refine notes with AI." });
   }
 });
 

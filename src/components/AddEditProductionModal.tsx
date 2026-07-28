@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Production, CategoryType, TheatreType, ShowtimeType } from '../types';
-import { X, Star, Sparkles, Ticket, Search, Image, Check } from 'lucide-react';
+import { X, Star, Sparkles, Ticket, Search, Image, Check, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface AddEditProductionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (production: Production) => void;
+  onDelete?: (id: string) => void;
   editingProduction?: Production | null;
   initialDate?: string;
 }
@@ -24,10 +25,12 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   editingProduction,
   initialDate,
 }) => {
   const [descriptionInput, setDescriptionInput] = useState('');
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<CategoryType>('Musical');
   const [theatreType, setTheatreType] = useState<TheatreType>('Broadway');
@@ -49,8 +52,10 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
   const [posterSearchKeyword, setPosterSearchKeyword] = useState('');
   const [posterSearchResults, setPosterSearchResults] = useState<Array<{ title: string; contentUrl: string; thumbnailUrl: string; hostPageUrl?: string }>>([]);
   const [isSearchingPosters, setIsSearchingPosters] = useState(false);
+  const [isRefiningNotes, setIsRefiningNotes] = useState(false);
 
   useEffect(() => {
+    setIsConfirmingDelete(false);
     if (editingProduction) {
       setDescriptionInput('');
       setTitle(editingProduction.title);
@@ -102,7 +107,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
       const res = await fetch(`/api/poster-search?q=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
-        const results = (data.results || []).slice(0, 3);
+        const results = (data.results || []).slice(0, 10);
         setPosterSearchResults(results);
         if (autoSelectFirst && results.length > 0 && results[0].contentUrl) {
           setPosterUrl(results[0].contentUrl);
@@ -112,6 +117,28 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
       console.error("Poster search failed:", err);
     } finally {
       setIsSearchingPosters(false);
+    }
+  };
+
+  const handleRefineNotes = async () => {
+    if (!notes.trim() || isRefiningNotes) return;
+    setIsRefiningNotes(true);
+    try {
+      const res = await fetch('/api/gemini/refine-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: notes }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.refinedText) {
+          setNotes(data.refinedText);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to refine notes:', err);
+    } finally {
+      setIsRefiningNotes(false);
     }
   };
 
@@ -139,7 +166,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
         if (data.category && ['Musical', 'Play', 'Opera', 'Dance', 'Concert', 'Other'].includes(data.category)) {
           setCategory(data.category as CategoryType);
         }
-        if (data.theatreType && ['Broadway', 'Off-Broadway', 'Touring', 'Regional', 'Community', 'Other'].includes(data.theatreType)) {
+        if (data.theatreType && ['Broadway', 'Off-Broadway', 'Touring', 'Regional', 'Community'].includes(data.theatreType)) {
           setTheatreType(data.theatreType as TheatreType);
         }
         if (data.venue) setVenue(data.venue);
@@ -212,7 +239,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
   };
 
   const categories: CategoryType[] = ['Musical', 'Play', 'Opera', 'Dance', 'Concert', 'Other'];
-  const theatreTypes: TheatreType[] = ['Broadway', 'Off-Broadway', 'Touring', 'Regional', 'Community', 'Other'];
+  const theatreTypes: TheatreType[] = ['Broadway', 'Off-Broadway', 'Touring', 'Regional', 'Community'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
@@ -224,7 +251,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
               <Ticket className="w-5 h-5" />
             </div>
             <h2 className="font-oswald text-2xl font-bold uppercase text-[#111113]">
-              {editingProduction ? 'Edit Theatre Diary Entry' : 'Log Production Attendance'}
+              {editingProduction ? 'Edit Theatre Diary Entry' : 'Log A Performance'}
             </h2>
           </div>
           <button
@@ -335,7 +362,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
             </div>
           </div>
 
-          {/* Date, Showtime, Venue, City Grid */}
+          {/* Date, Showtime, Venue, City & Ticket Price Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="block label text-[#111113]">
@@ -381,7 +408,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <label className="block label text-[#111113]">
                 Theatre / Venue <span className="text-[#2A5AEE]">*</span>
               </label>
@@ -407,33 +434,75 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                 className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-mono"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <label className="block label text-[#111113]">
+                Ticket Price ($)
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-[#111113] font-bold text-xs font-mono select-none">$</span>
+                <input
+                  type="number"
+                  placeholder="e.g. 150"
+                  value={ticketPrice}
+                  onChange={(e) => setTicketPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] pl-7 pr-3.5 py-2 text-xs outline-none font-mono"
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Rating Selector */}
+          {/* Rating Selector with Half-Star Support */}
           <div className="space-y-2 bg-[#F8F7F4] p-4 border border-[#111113]">
             <label className="block label text-[#111113] flex items-center justify-between">
               <span>Overall Rating</span>
-              <span className="text-amber-600 font-bold text-xs">{rating} / 5 Stars</span>
+              <span className="text-amber-600 font-bold text-xs">{(hoverRating || rating).toFixed(1).replace('.0', '')} / 5 Stars</span>
             </label>
-            <div className="flex items-center space-x-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  onMouseEnter={() => setHoverRating(star)}
-                  onMouseLeave={() => setHoverRating(0)}
-                  className="p-1 text-2xl transition-transform hover:scale-125 focus:outline-none cursor-pointer"
-                >
-                  <Star
-                    className={`w-6 h-6 ${
-                      (hoverRating || rating) >= star
-                        ? 'fill-amber-400 text-amber-500'
-                        : 'text-neutral-300 fill-neutral-200'
-                    }`}
-                  />
-                </button>
-              ))}
+            <div className="flex items-center space-x-1">
+              {[1, 2, 3, 4, 5].map((starIndex) => {
+                const activeVal = hoverRating || rating;
+                const isFull = activeVal >= starIndex;
+                const isHalf = activeVal === starIndex - 0.5;
+
+                return (
+                  <div
+                    key={starIndex}
+                    className="relative w-8 h-8 flex items-center justify-center cursor-pointer group select-none"
+                    onMouseLeave={() => setHoverRating(0)}
+                  >
+                    {/* Left half hit target (0.5 star step) */}
+                    <div
+                      className="absolute left-0 top-0 w-1/2 h-full z-20 cursor-pointer"
+                      onMouseEnter={() => setHoverRating(starIndex - 0.5)}
+                      onClick={() => setRating(starIndex - 0.5)}
+                      title={`${starIndex - 0.5} stars`}
+                    />
+                    {/* Right half hit target (full star step) */}
+                    <div
+                      className="absolute right-0 top-0 w-1/2 h-full z-20 cursor-pointer"
+                      onMouseEnter={() => setHoverRating(starIndex)}
+                      onClick={() => setRating(starIndex)}
+                      title={`${starIndex} stars`}
+                    />
+
+                    {/* Star Icon Visual */}
+                    {isFull ? (
+                      <Star className="w-6 h-6 fill-amber-400 text-amber-500 pointer-events-none transition-transform group-hover:scale-110" />
+                    ) : isHalf ? (
+                      <div className="relative w-6 h-6 pointer-events-none transition-transform group-hover:scale-110">
+                        {/* Background empty star */}
+                        <Star className="absolute inset-0 w-6 h-6 text-neutral-300 fill-neutral-200" />
+                        {/* Half star clipped overlay */}
+                        <div className="absolute inset-0 w-1/2 overflow-hidden">
+                          <Star className="w-6 h-6 fill-amber-400 text-amber-500 max-w-none" />
+                        </div>
+                      </div>
+                    ) : (
+                      <Star className="w-6 h-6 text-neutral-300 fill-neutral-200 pointer-events-none transition-transform group-hover:scale-110" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -444,15 +513,12 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                 <Image className="w-4 h-4 text-[#2A5AEE]" />
                 Production Poster Artwork
               </label>
-              <span className="text-[10px] font-mono text-[#2A5AEE] font-bold uppercase bg-[#2A5AEE]/10 px-2 py-0.5 border border-[#2A5AEE]/30">
-                Brave Search Integrated
-              </span>
             </div>
 
             {/* Search Bar for Brave Image Keywords */}
             <div className="space-y-1.5">
-              <span className="text-[11px] text-[#111113]/80 font-medium">
-                Search poster keywords (e.g. "the lunch box musical berkeley REP poster" or "Sound of music tour poster"):
+              <span className="text-[11px] text-[#111113]/80 font-normal font-sans">
+                Search poster keywords:
               </span>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -467,7 +533,7 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                         performPosterSearch();
                       }
                     }}
-                    className="w-full bg-white border border-[#111113] focus:border-[#2A5AEE] text-[#111113] pl-8 pr-3 py-2 text-xs outline-none font-medium"
+                    className="w-full bg-white border border-[#111113] focus:border-[#2A5AEE] text-[#111113] pl-8 pr-3 py-2 text-xs outline-none font-sans font-medium"
                   />
                   <Search className="w-3.5 h-3.5 text-[#111113]/50 absolute left-2.5 top-3" />
                 </div>
@@ -475,25 +541,25 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                   type="button"
                   onClick={() => performPosterSearch()}
                   disabled={isSearchingPosters || !posterSearchKeyword.trim()}
-                  className="flex items-center space-x-1.5 bg-[#111113] text-white hover:bg-[#2A5AEE] px-3.5 py-2 font-oswald text-xs font-bold uppercase tracking-wider shrink-0 transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center space-x-1.5 bg-[#111113] text-white hover:bg-[#2A5AEE] px-3.5 py-2 font-sans text-xs font-bold uppercase tracking-wider shrink-0 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Search className={`w-3.5 h-3.5 ${isSearchingPosters ? 'animate-spin' : ''}`} />
-                  <span>{isSearchingPosters ? 'Searching...' : 'Search Brave'}</span>
+                  <span>{isSearchingPosters ? 'Searching...' : 'Search'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Display Top 3 Image Results */}
+            {/* Display Top 10 Image Results */}
             {posterSearchResults.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-[#111113]/15">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-[#111113] flex items-center gap-1">
-                    ✨ Top 3 Poster Options:
+                  <span className="font-sans font-normal text-[11px] text-[#111113] flex items-center gap-1">
+                    ✨ Top 10 Poster Options:
                   </span>
-                  <span className="text-[10px] text-[#111113]/60 italic">Click image to select & auto-fill link</span>
+                  <span className="text-[10px] text-[#111113]/60 italic font-sans">Click image to select & auto-fill link</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {posterSearchResults.map((result, idx) => {
                     const isSelected = posterUrl === result.contentUrl;
                     return (
@@ -501,13 +567,13 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                         key={idx}
                         type="button"
                         onClick={() => setPosterUrl(result.contentUrl)}
-                        className={`group relative flex flex-col items-center bg-white border-2 text-left p-1.5 transition-all cursor-pointer overflow-hidden ${
+                        className={`group relative flex flex-col items-center bg-white border-2 text-left p-1 transition-all cursor-pointer overflow-hidden ${
                           isSelected
                             ? 'border-[#2A5AEE] ring-2 ring-[#2A5AEE]/30 shadow-md scale-[1.02]'
                             : 'border-[#111113]/30 hover:border-[#111113] hover:shadow-sm'
                         }`}
                       >
-                        <div className="relative w-full h-32 bg-neutral-100 overflow-hidden border border-[#111113]/20 mb-1.5">
+                        <div className="relative w-full h-28 bg-neutral-100 overflow-hidden border border-[#111113]/20 mb-1">
                           <img
                             src={result.thumbnailUrl || result.contentUrl}
                             alt={result.title || `Poster ${idx + 1}`}
@@ -519,11 +585,11 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
                               <Check className="w-3 h-3 stroke-[3]" />
                             </div>
                           )}
-                          <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-xs text-white text-[9px] px-1.5 py-0.5 truncate font-mono">
+                          <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-xs text-white text-[9px] px-1 py-0.5 truncate font-mono">
                             Result #{idx + 1}
                           </div>
                         </div>
-                        <span className="text-[10px] text-[#111113] font-medium line-clamp-2 leading-tight w-full">
+                        <span className="text-[9px] text-[#111113] font-medium line-clamp-2 leading-tight w-full">
                           {result.title || `Poster option ${idx + 1}`}
                         </span>
                       </button>
@@ -565,44 +631,18 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
             </div>
           </div>
 
-          {/* Ticket Price & Tags */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block label text-[#111113]">
-                Ticket Price
-              </label>
-              <div className="flex gap-1">
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="bg-[#F8F7F4] border border-[#111113] text-[#111113] px-2 text-xs outline-none font-bold font-mono"
-                >
-                  <option value="$">$</option>
-                  <option value="£">£</option>
-                  <option value="€">€</option>
-                </select>
-                <input
-                  type="number"
-                  placeholder="e.g. 150"
-                  value={ticketPrice}
-                  onChange={(e) => setTicketPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3 py-2 text-xs outline-none font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block label text-[#111113]">
-                Tags (comma separated)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Broadway, Front Row, Revival, Tony Winner"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3 py-2 text-xs outline-none font-mono"
-              />
-            </div>
+          {/* Tags */}
+          <div className="space-y-1.5">
+            <label className="block label text-[#111113]">
+              Tags (comma separated)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Broadway, Front Row, Revival, Tony Winner"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              className="w-full bg-[#F8F7F4] border border-[#111113] focus:border-[#2A5AEE] text-[#111113] px-3.5 py-2 text-xs outline-none font-mono"
+            />
           </div>
 
           {/* Show Plot & Synopsis */}
@@ -626,9 +666,21 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
 
           {/* Personal Review Notes */}
           <div className="space-y-1.5">
-            <label className="block label text-[#111113]">
-              Personal Review & Notes
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block label text-[#111113]">
+                Personal Review & Notes
+              </label>
+              <button
+                type="button"
+                onClick={handleRefineNotes}
+                disabled={isRefiningNotes || !notes.trim()}
+                className="flex items-center space-x-1.5 text-xs font-mono font-bold text-[#2A5AEE] hover:text-[#1f47c9] disabled:opacity-40 cursor-pointer bg-[#2A5AEE]/10 hover:bg-[#2A5AEE]/20 px-2.5 py-1 border border-[#2A5AEE]/30 transition-all"
+                title="Refine sentence flow and fix typos while keeping your original tone"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isRefiningNotes ? 'animate-spin' : ''}`} />
+                <span>{isRefiningNotes ? 'Refining...' : 'Refine with AI'}</span>
+              </button>
+            </div>
             <textarea
               rows={3}
               placeholder="What stood out? Vocals, set design, orchestra, memorable moments..."
@@ -639,21 +691,60 @@ export const AddEditProductionModal: React.FC<AddEditProductionModalProps> = ({
           </div>
 
           {/* Submit Footer */}
-          <div className="pt-4 border-t-2 border-[#111113] flex items-center justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 border border-[#111113] text-[#111113] hover:bg-[#111113] hover:text-white text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              id="btn-modal-submit"
-              type="submit"
-              className="bg-[#2A5AEE] hover:bg-[#1f47c9] text-white border-2 border-[#111113] font-oswald text-sm font-bold uppercase tracking-wider px-6 py-2.5 shadow-[2px_2px_0px_0px_#111113] transition-all cursor-pointer"
-            >
-              {editingProduction ? 'Save Changes' : 'Log Production Entry'}
-            </button>
+          <div className="pt-4 border-t-2 border-[#111113] flex flex-wrap items-center justify-between gap-3">
+            <div>
+              {editingProduction && onDelete && (
+                isConfirmingDelete ? (
+                  <div className="flex items-center space-x-2 bg-red-100 border border-red-400 p-1.5 px-3">
+                    <span className="text-xs text-red-700 font-bold font-mono">Delete this entry?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDelete(editingProduction.id);
+                        setIsConfirmingDelete(false);
+                        onClose();
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-bold uppercase px-3 py-1 cursor-pointer transition-colors"
+                    >
+                      Yes, Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingDelete(false)}
+                      className="bg-neutral-300 hover:bg-neutral-400 text-neutral-800 font-mono text-xs font-bold uppercase px-2 py-1 cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingDelete(true)}
+                    className="flex items-center space-x-1.5 text-red-600 hover:bg-red-100 px-3 py-2 border border-red-300 text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Entry</span>
+                  </button>
+                )
+              )}
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 border border-[#111113] text-[#111113] hover:bg-[#111113] hover:text-white text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-modal-submit"
+                type="submit"
+                className="bg-[#2A5AEE] hover:bg-[#1f47c9] text-white border-2 border-[#111113] font-oswald text-sm font-bold uppercase tracking-wider px-6 py-2.5 shadow-[2px_2px_0px_0px_#111113] transition-all cursor-pointer"
+              >
+                {editingProduction ? 'Save Changes' : 'Log Production Entry'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

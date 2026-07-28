@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Production, FilterState } from '../types';
-import { Search, Star, Calendar, MapPin, Filter, SlidersHorizontal, Grid, List, Plus, Ticket } from 'lucide-react';
+import { Search, Star, Calendar, MapPin, Filter, SlidersHorizontal, Grid, List, Plus, Ticket, Trash2 } from 'lucide-react';
 
 interface JournalViewProps {
   productions: Production[];
@@ -16,6 +16,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onDeleteProduction,
 }) => {
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     category: 'All',
@@ -278,10 +279,37 @@ export const JournalView: React.FC<JournalViewProps> = ({
                       {prod.title}
                     </h3>
 
-                    {/* Star Rating Display */}
-                    <div className="flex items-center space-x-1 shrink-0 bg-[#EEECE7] border border-[#111113] px-2 py-0.5">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                      <span className="text-xs font-mono font-bold text-[#111113]">{prod.rating}</span>
+                    {/* Star Rating Display & Quick Delete */}
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <div className="flex items-center space-x-1 bg-[#EEECE7] border border-[#111113] px-2 py-0.5">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                        <span className="text-xs font-mono font-bold text-[#111113]">{prod.rating}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirmingDeleteId === prod.id) {
+                            onDeleteProduction(prod.id);
+                            setConfirmingDeleteId(null);
+                          } else {
+                            setConfirmingDeleteId(prod.id);
+                          }
+                        }}
+                        className={`p-1.5 border border-[#111113] transition-all cursor-pointer ${
+                          confirmingDeleteId === prod.id
+                            ? 'bg-red-600 text-white border-red-700 px-2'
+                            : 'bg-[#F8F7F4] text-[#111113]/60 hover:text-red-600 hover:bg-red-50 hover:border-red-300'
+                        }`}
+                        title={confirmingDeleteId === prod.id ? "Click to confirm delete" : "Delete entry"}
+                      >
+                        {confirmingDeleteId === prod.id ? (
+                          <span className="text-[10px] font-mono font-bold uppercase">Confirm?</span>
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
                     </div>
                   </div>
 

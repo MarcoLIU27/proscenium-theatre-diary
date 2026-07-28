@@ -16,6 +16,11 @@ export const ProductionDetailModal: React.FC<ProductionDetailModalProps> = ({
   onDelete,
 }) => {
   const [headerBgColor, setHeaderBgColor] = useState<string>('#111113');
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsConfirmingDelete(false);
+  }, [production?.id]);
 
   useEffect(() => {
     if (!production?.posterUrl) {
@@ -226,19 +231,39 @@ export const ProductionDetailModal: React.FC<ProductionDetailModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="px-6 py-4 border-t-2 border-[#111113] bg-[#EEECE7] flex items-center justify-between">
-          <button
-            onClick={() => {
-              if (confirm(`Are you sure you want to delete "${production.title}" from your diary?`)) {
-                onDelete(production.id);
-                onClose();
-              }
-            }}
-            className="flex items-center space-x-1.5 text-red-600 hover:bg-red-100 px-3 py-2 border border-red-300 text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Delete Entry</span>
-          </button>
+        <div className="px-6 py-4 border-t-2 border-[#111113] bg-[#EEECE7] flex flex-wrap items-center justify-between gap-3">
+          {isConfirmingDelete ? (
+            <div className="flex items-center space-x-2 bg-red-100 border border-red-400 p-1.5 px-3">
+              <span className="text-xs text-red-700 font-bold font-mono">Delete this entry?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete(production.id);
+                  setIsConfirmingDelete(false);
+                  onClose();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-bold uppercase px-3 py-1 cursor-pointer transition-colors"
+              >
+                Yes, Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(false)}
+                className="bg-neutral-300 hover:bg-neutral-400 text-neutral-800 font-mono text-xs font-bold uppercase px-2 py-1 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsConfirmingDelete(true)}
+              className="flex items-center space-x-1.5 text-red-600 hover:bg-red-100 px-3 py-2 border border-red-300 text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Entry</span>
+            </button>
+          )}
 
           <div className="flex items-center space-x-3 font-mono">
             <button
